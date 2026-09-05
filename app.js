@@ -9,24 +9,91 @@ let stream=null, worker=null, busy=false, lastText="", stableText="", stableCoun
 let interval=750, rate=.95;
 
 async function startCamera(){
-  if(!navigator.mediaDevices?.getUserMedia){status("Bu tarayıcı kamera erişimini desteklemiyor.");return}
+  if(stream) return;
+
+  if(!window.isSecureContext){
+    status("Kamera için HTTPS gerekiyor. GitHub Pages adresini kullan.");
+    return;
+  }
+
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    status("Bu tarayıcı kamera erişimini desteklemiyor. iPhone'da Safari kullan.");
+    return;
+  }
+
+  status("Kamera izni isteniyor…");
+
   try{
-    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment",width:{ideal:1920},height:{ideal:1080}},audio:false});
-    video.srcObject=stream; await video.play();
-    status("OCR motoru hazırlanıyor…");
-    worker=await Tesseract.createWorker("eng",1,{logger:m=>{if(m.status) status(`OCR: ${m.status} ${Math.round((m.progress||0)*100)}%`) }});
-    await worker.setParameters({
-      tessedit_pageseg_mode: "7",
-      preserve_interword_spaces: "1",
-      user_defined_dpi: "160"
+    const constraints = {
+      audio:false,
+      video:{
+        facingMode:{ideal:"environment"},
+        width:{ideal:1280},
+        height:{ideal:720}
+      }
+    };
+
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject = stream;
+
+    await new Promise((resolve,reject)=>{
+      const timeout=setTimeout(()=>reject(new Error("Kamera görüntüsü zaman aşımına uğradı.")),8000);
+      video.onloadedmetadata=()=>{
+        clearTimeout(timeout);
+        resolve();
+      };
     });
-    status("Hazır — altyazı kutusunu altyazının üzerine getir.");
+
+    await video.play();
+
+    if(!video.videoWidth || !video.videoHeight){
+      throw new Error("Kamera görüntüsü alınamadı.");
+    }
+
+    startBtn.textContent="Kamera Açık";
+    startBtn.disabled=true;
+    status("OCR motoru hazırlanıyor…");
+
+    worker=await Tesseract.createWorker("eng",1,{
+      logger:m=>{
+        if(m.status){
+          status(`OCR: ${m.status} ${Math.round((m.progress||0)*100)}%`);
+        }
+      }
+    });
+
+    status("Hazır — sarı kutuyu altyazının üzerine getir.");
     schedule();
-  }catch(e){status("Kamera açılamadı: "+e.message)}
+
+  }catch(e){
+    console.error("Camera error:",e);
+    if(stream){
+      stream.getTracks().forEach(t=>t.stop());
+      stream=null;
+    }
+
+    let msg=e?.name || "";
+    if(msg==="NotAllowedError"){
+      msg="Kamera izni verilmedi. Safari → Ayarlar → Kamera iznini kontrol et.";
+    }else if(msg==="NotFoundError"){
+      msg="Kamera bulunamadı.";
+    }else if(msg==="NotReadableError"){
+      msg="Kamera başka bir uygulama tarafından kullanılıyor.";
+    }else if(msg==="SecurityError"){
+      msg="Kamera erişimi güvenlik nedeniyle engellendi. HTTPS kullan.";
+    }else{
+      msg=e?.message || "Kamera açılamadı.";
+    }
+
+    status(msg);
+    startBtn.disabled=false;
+    startBtn.textContent="Kamerayı Tekrar Aç";
+  }
 }
+
 function schedule(){clearTimeout(timer);timer=setTimeout(async()=>{await scan();schedule()},interval)}
 async function scan(){
-  if(busy||!worker||video.readyState<2)return;
+  if(busy||!worker||video.readyState<2||!video.videoWidth||!video.videoHeight)return;
   busy=true;
   try{
     const r=box.getBoundingClientRect(), v=video.getBoundingClientRect();

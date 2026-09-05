@@ -20,3 +20,17 @@ V11.1 is the faster PC-free iPhone web/PWA version.
 This remains a PWA and does not require the PC to run the application.
 Camera access requires HTTPS.
 The OCR engine is Tesseract.js running on the iPhone browser.
+
+
+## Ekran düzeni
+- Dikey: kamera üstte %50, çeviri altta %50.
+- Yatay: kamera solda %50, çeviri sağda %50.
+
+
+## V11.3 kamera düzeltmesi
+- Kamera yalnızca gerçek kullanıcı dokunuşuyla başlatılır.
+- HTTPS/güvenli bağlam kontrolü eklenmiştir.
+- iPhone Safari için arka kamera (`environment`) tercih edilir.
+- Kamera görüntüsünün gerçekten hazır olduğu doğrulanır.
+- Kamera izin hataları kullanıcıya anlaşılır şekilde gösterilir.
+- Kamera hazır olmadan OCR başlatılmaz.
