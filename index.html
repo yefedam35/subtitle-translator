@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#000">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
+<title>Subtitle Translator</title>
+</head>
+<body>
+<main id="app">
+  <video id="camera" autoplay playsinline muted></video>
+  <canvas id="frame" hidden></canvas>
+
+  <div id="ocrBox">
+    <div class="handle"></div>
+  </div>
+
+  <section id="panel">
+    <div id="status">Kamera hazırlanıyor…</div>
+    <div id="en"></div>
+    <div id="tr"></div>
+    <div class="buttons">
+      <button id="start">Kamerayı Aç</button>
+      <button id="speak">Seslendir</button>
+      <button id="mute">Sesi Durdur</button>
+      <button id="settings">⚙</button>
+    </div>
+  </section>
+</main>
+
+<dialog id="settingsDialog">
+  <form method="dialog">
+    <h2>Ayarlar</h2>
+    <label>OCR aralığı <input id="interval" type="range" min="900" max="3000" step="100" value="1600"></label>
+    <label>Ses hızı <input id="rate" type="range" min="0.5" max="1.2" step="0.05" value="0.85"></label>
+    <button>Kapat</button>
+  </form>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
