@@ -1,64 +1,21 @@
+# Subtitle Translator V11.8 — Online OCR
 
-# Subtitle Translator V11.1 — PC'siz Hızlı PWA
+Bu sürümde Tesseract.js tamamen kaldırıldı.
 
-V11.1 is the faster PC-free iPhone web/PWA version.
+Mimari:
+iPhone kamera → seçili altyazı crop'u → OCR.space Engine 3 → MyMemory İngilizce/Türkçe çeviri → iPhone ekranı/seslendirme.
 
-## Layout
-- Portrait: camera top 50%, translation bottom 50%.
-- Landscape: camera left 50%, translation right 50%.
-- OCR box is movable and resizable inside the camera pane.
+OCR.space dokümantasyonuna göre Engine 3 en yüksek doğruluğu hedefleyen motordur ve Engine 2'ye göre daha yavaştır; Engine 2 ise hız/kalite dengesi için önerilir. Bu sürüm özellikle önceki Tesseract hatalarını aşmak için Engine 3 kullanır.
 
-## Speed changes
-- OCR interval reduced to 750 ms.
-- Tesseract uses single-line page segmentation (PSM 7), suited to subtitles.
-- OCR crop is capped to 1100 px wide to reduce CPU work.
-- High-confidence readable text can translate after one OCR frame.
-- Google Translate web endpoint is attempted before MyMemory, with fallback.
-- Speech rate default increased to 0.95.
+## API anahtarı
+Ayarlar içindeki OCR API anahtarı alanına OCR.space ücretsiz API anahtarını girebilirsin. Test için `helloworld` bırakılabilir; ücretsiz servis IP başına günlük istek limiti uygular.
 
-## Important
-This remains a PWA and does not require the PC to run the application.
-Camera access requires HTTPS.
-The OCR engine is Tesseract.js running on the iPhone browser.
+## Kullanım
+1. Dosyaları GitHub Pages'e yükle.
+2. iPhone Safari'den siteyi aç.
+3. Kamerayı Aç.
+4. Sarı kutuyu altyazının tamamına getir.
+5. Ayarlardan gerekiyorsa OCR API anahtarını gir.
+6. Çeviri geldiğinde Seslendir'e bas.
 
-
-## Ekran düzeni
-- Dikey: kamera üstte %50, çeviri altta %50.
-- Yatay: kamera solda %50, çeviri sağda %50.
-
-
-## V11.3 kamera düzeltmesi
-- Kamera yalnızca gerçek kullanıcı dokunuşuyla başlatılır.
-- HTTPS/güvenli bağlam kontrolü eklenmiştir.
-- iPhone Safari için arka kamera (`environment`) tercih edilir.
-- Kamera görüntüsünün gerçekten hazır olduğu doğrulanır.
-- Kamera izin hataları kullanıcıya anlaşılır şekilde gösterilir.
-- Kamera hazır olmadan OCR başlatılmaz.
-
-
-## V11.4 OCR kutu düzeltmesi
-- object-fit: cover koordinat dönüşümü düzeltildi.
-- Sarı kutunun seçtiği gerçek kamera alanı doğru crop ediliyor.
-- Crop otomatik büyütülüyor ve kontrast artırılıyor.
-- Tek satır altyazı OCR ayarları iyileştirildi.
-
-
-## V11.5 OCR accuracy
-- Altyazı crop'u daha fazla büyütülüyor.
-- Normal, threshold ve soft-contrast olmak üzere 3 OCR görüntüsü deneniyor.
-- Tesseract sonuçları confidence ile karşılaştırılıp en iyi sonuç seçiliyor.
-- Küçük/kenarlı oyun altyazıları için daha dayanıklı hale getirildi.
-
-
-## V11.6 kutu sınırı
-- OCR kutusu yalnızca kamera panelinin içinde hareket eder.
-- Dikey modda çeviri paneline geçemez.
-- Yatay modda sağdaki çeviri paneline geçemez.
-- Kamera alanının dışına taşma engellendi.
-- Kamera görüntüsünü karartan büyük kutu gölgesi kaldırıldı.
-
-
-## V11.7 OCR mapping/accuracy fix
-- Kamera `object-fit: fill` ile paneli birebir dolduruyor; sarı kutu koordinatı doğrudan kamera pikseline eşleniyor.
-- Sarı çerçevenin kendisi OCR crop'undan çıkarılıyor.
-- Kısa/şüpheli OCR sonucu (ör. `Ei1`) gelirse yalnızca o durumda online OCR yedeği deneniyor.
+Not: Online OCR kullanıldığı için bu sürüm internet gerektirir. Kamera görüntüsünün yalnızca sarı kutu içindeki crop'u OCR servisine gönderilir.
