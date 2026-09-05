@@ -1,29 +1,22 @@
 
-# Subtitle Translator V11 — PC'siz iPhone sürümü
+# Subtitle Translator V11.1 — PC'siz Hızlı PWA
 
-Bu sürüm native iOS değil; iPhone Safari üzerinde çalışan standalone PWA prototipidir.
-PC'de OCR/çeviri sunucusu çalıştırmaz.
+V11.1 is the faster PC-free iPhone web/PWA version.
 
-Mimari:
-- iPhone kamera: Safari
-- OCR: Tesseract.js/WebAssembly, cihaz üzerinde
-- Çeviri: MyMemory internet API
-- Ses: iPhone Speech Synthesis
-- PWA: Ana Ekrana Ekle / standalone
+## Layout
+- Portrait: camera top 50%, translation bottom 50%.
+- Landscape: camera left 50%, translation right 50%.
+- OCR box is movable and resizable inside the camera pane.
 
-Tesseract.js browser ve Node üzerinde WebAssembly tabanlı OCR sağlar.
-MyMemory API, `q` ve `langpair=en|tr` ile REST çevirisi sağlar.
+## Speed changes
+- OCR interval reduced to 750 ms.
+- Tesseract uses single-line page segmentation (PSM 7), suited to subtitles.
+- OCR crop is capped to 1100 px wide to reduce CPU work.
+- High-confidence readable text can translate after one OCR frame.
+- Google Translate web endpoint is attempted before MyMemory, with fallback.
+- Speech rate default increased to 0.95.
 
-## Kullanım
-HTTPS altında yayınlanmalıdır; kamera için güvenli bağlam gerekir.
-GitHub Pages, Cloudflare Pages veya benzeri bir HTTPS statik hosting kullanılabilir.
-
-1. Dosyaları bir HTTPS statik siteye yükle.
-2. iPhone Safari ile siteyi aç.
-3. Kamerayı Aç.
-4. Sarı kutuyu altyazıya getir.
-5. Safari menüsünden Ana Ekrana Ekle.
-6. Uygulama gibi aç.
-
-## Önemli
-Bu ilk PC'siz prototiptir. Tesseract.js, EasyOCR kadar güçlü olmayabilir ve ilk OCR model yüklemesi internetten yapılır. Gerçek cihaz testinden sonra performans/accuracy optimizasyonu yapılmalıdır.
+## Important
+This remains a PWA and does not require the PC to run the application.
+Camera access requires HTTPS.
+The OCR engine is Tesseract.js running on the iPhone browser.

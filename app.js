@@ -5,8 +5,8 @@ const box=document.querySelector("#ocrBox"), statusEl=document.querySelector("#s
 const enEl=document.querySelector("#en"), trEl=document.querySelector("#tr");
 const startBtn=document.querySelector("#start"), speakBtn=document.querySelector("#speak"), muteBtn=document.querySelector("#mute");
 const settingsBtn=document.querySelector("#settings"), dialog=document.querySelector("#settingsDialog");
-let stream=null, worker=null, busy=false, lastText="", stableText="", stableCount=0, timer=null;
-let interval=1600, rate=.85;
+let stream=null, worker=null, busy=false, lastText="", stableText="", stableCount=0, timer=null, lastOCRAt=0;
+let interval=750, rate=.95;
 
 async function startCamera(){
   if(!navigator.mediaDevices?.getUserMedia){status("Bu tarayıcı kamera erişimini desteklemiyor.");return}
@@ -15,6 +15,11 @@ async function startCamera(){
     video.srcObject=stream; await video.play();
     status("OCR motoru hazırlanıyor…");
     worker=await Tesseract.createWorker("eng",1,{logger:m=>{if(m.status) status(`OCR: ${m.status} ${Math.round((m.progress||0)*100)}%`) }});
+    await worker.setParameters({
+      tessedit_pageseg_mode: "7",
+      preserve_interword_spaces: "1",
+      user_defined_dpi: "160"
+    });
     status("Hazır — altyazı kutusunu altyazının üzerine getir.");
     schedule();
   }catch(e){status("Kamera açılamadı: "+e.message)}
@@ -28,8 +33,12 @@ async function scan(){
     const scaleX=video.videoWidth/v.width, scaleY=video.videoHeight/v.height;
     let sx=(r.left-v.left)*scaleX, sy=(r.top-v.top)*scaleY, sw=r.width*scaleX, sh=r.height*scaleY;
     sx=Math.max(0,sx);sy=Math.max(0,sy);sw=Math.min(video.videoWidth-sx,sw);sh=Math.min(video.videoHeight-sy,sh);
-    canvas.width=Math.max(2,Math.round(sw));canvas.height=Math.max(2,Math.round(sh));
+    const maxW=1100;
+    const outScale=Math.min(1,maxW/Math.max(1,sw));
+    canvas.width=Math.max(2,Math.round(sw*outScale));canvas.height=Math.max(2,Math.round(sh*outScale));
+    ctx.filter="contrast(1.12) brightness(1.05)";
     ctx.drawImage(video,sx,sy,sw,sh,0,0,canvas.width,canvas.height);
+    ctx.filter="none";
     const out=await worker.recognize(canvas);
     let text=(out.data.text||"").replace(/\s+/g," ").trim();
     text=clean(text);
@@ -46,21 +55,51 @@ function sim(a,b){
   return 1-p[B.length]/Math.max(A.length,B.length)
 }
 async function handleOCR(text){
-  if(stableText && sim(text,stableText)>=.82){stableCount++}else{stableText=text;stableCount=1}
-  if(stableCount<2)return;
-  if(lastText && sim(text,lastText)>=.9)return;
-  lastText=text; enEl.textContent=text; status("Çevriliyor…");
+  const n=norm(text);
+  if(!n)return;
+
+  // A high-confidence, readable line is translated after the first stable read.
+  // If OCR is still changing, require a second similar frame.
+  const current = stableText ? sim(text,stableText) : 0;
+  if(current>=0.82) stableCount++; else { stableText=text; stableCount=1; }
+
+  const fastAccept = text.length >= 4;
+  if(!fastAccept && stableCount<2)return;
+  if(lastText && sim(text,lastText)>=0.90)return;
+
+  lastText=text;
+  enEl.textContent=text;
+  status("Çevriliyor…");
+
   const tr=await translate(text);
-  trEl.textContent=tr; status("Hazır");
+  if(!tr || tr===text){
+    status("Çeviri başarısız");
+    return;
+  }
+  trEl.textContent=tr;
+  status("Hazır");
 }
 async function translate(text){
   const q=text.slice(0,480);
+  // Google Translate's public web endpoint is usually faster for short subtitle lines.
+  try{
+    const u="https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=tr&dt=t&q="+encodeURIComponent(q);
+    const r=await fetch(u,{cache:"no-store"});
+    if(r.ok){
+      const d=await r.json();
+      const out=(d[0]||[]).map(x=>x[0]||"").join("").trim();
+      if(out)return out;
+    }
+  }catch(e){}
+
   try{
     const u="https://api.mymemory.translated.net/get?q="+encodeURIComponent(q)+"&langpair=en|tr";
-    const r=await fetch(u); if(!r.ok)throw Error("HTTP "+r.status);
+    const r=await fetch(u,{cache:"no-store"}); if(!r.ok)throw Error("HTTP "+r.status);
     const d=await r.json();
-    return d.responseData?.translatedText || d.matches?.[0]?.translation || text;
-  }catch(e){status("Çeviri bağlantısı başarısız");return text}
+    return d.responseData?.translatedText || d.matches?.[0]?.translation || "";
+  }catch(e){
+    return "";
+  }
 }
 function status(t){statusEl.textContent=t}
 function speak(){
