@@ -105,16 +105,23 @@ async function scan(){
   try{
     const r=box.getBoundingClientRect(), v=video.getBoundingClientRect();
     const vw=video.videoWidth, vh=video.videoHeight;
-    const coverScale=Math.max(v.width/vw, v.height/vh);
-    const renderedW=vw*coverScale, renderedH=vh*coverScale;
-    const cropX=(renderedW-v.width)/2, cropY=(renderedH-v.height)/2;
 
-    // Map the on-screen yellow box to the actual camera pixels.
-    let sx=((r.left-v.left)+cropX)/coverScale;
-    let sy=((r.top-v.top)+cropY)/coverScale;
-    let sw=r.width/coverScale, sh=r.height/coverScale;
-    sx=Math.max(0,Math.min(vw-2,sx)); sy=Math.max(0,Math.min(vh-2,sy));
-    sw=Math.max(2,Math.min(vw-sx,sw)); sh=Math.max(2,Math.min(vh-sy,sh));
+    // The video is deliberately rendered with object-fit: fill, so the
+    // yellow on-screen OCR box maps directly to camera pixels.
+    let sx=(r.left-v.left)*(vw/v.width);
+    let sy=(r.top-v.top)*(vh/v.height);
+    let sw=r.width*(vw/v.width);
+    let sh=r.height*(vh/v.height);
+
+    sx=Math.max(0,Math.min(vw-2,sx));
+    sy=Math.max(0,Math.min(vh-2,sy));
+    sw=Math.max(2,Math.min(vw-sx,sw));
+    sh=Math.max(2,Math.min(vh-sy,sh));
+
+    // Ignore a tiny border around the selection so the yellow frame/handle
+    // never becomes OCR input.
+    const marginX=sw*0.012, marginY=sh*0.05;
+    sx+=marginX; sy+=marginY; sw-=marginX*2; sh-=marginY*2;
 
     // Upscale the subtitle crop. Camera subtitles are often small, so
     // several lightweight preprocessing variants are tested and the
@@ -151,7 +158,30 @@ async function scan(){
     // obvious OCR noise.
     results.sort((a,b)=>(b.conf + Math.min(b.text.length,40)*0.15) -
                          (a.conf + Math.min(a.text.length,40)*0.15));
-    if(results.length) handleOCR(results[0].text);
+    const best=results[0];
+    if(best && best.text.length>=4){
+      handleOCR(best.text);
+    }else{
+      // A short result such as "Ei1" is usually OCR noise. Try a stronger
+      // online OCR only in this case, so normal scanning remains lightweight.
+      try{
+        const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/jpeg",0.88));
+        if(blob){
+          const fd=new FormData();
+          fd.append("apikey","helloworld");
+          fd.append("language","eng");
+          fd.append("isOverlayRequired","false");
+          fd.append("OCREngine","2");
+          fd.append("file",blob,"subtitle.jpg");
+          const rr=await fetch("https://api.ocr.space/parse/image",{method:"POST",body:fd});
+          if(rr.ok){
+            const dd=await rr.json();
+            const ot=clean((dd.ParsedResults||[]).map(x=>x.ParsedText||"").join(" ").replace(/\s+/g," ").trim());
+            if(ot.length>=3) handleOCR(ot);
+          }
+        }
+      }catch(_){}
+    }
 
     function makeVariant(imageData, mode){
       const copy=new ImageData(

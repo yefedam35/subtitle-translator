@@ -56,3 +56,9 @@ The OCR engine is Tesseract.js running on the iPhone browser.
 - Yatay modda sağdaki çeviri paneline geçemez.
 - Kamera alanının dışına taşma engellendi.
 - Kamera görüntüsünü karartan büyük kutu gölgesi kaldırıldı.
+
+
+## V11.7 OCR mapping/accuracy fix
+- Kamera `object-fit: fill` ile paneli birebir dolduruyor; sarı kutu koordinatı doğrudan kamera pikseline eşleniyor.
+- Sarı çerçevenin kendisi OCR crop'undan çıkarılıyor.
+- Kısa/şüpheli OCR sonucu (ör. `Ei1`) gelirse yalnızca o durumda online OCR yedeği deneniyor.
