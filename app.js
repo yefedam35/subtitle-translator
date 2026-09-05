@@ -116,19 +116,64 @@ async function scan(){
     sx=Math.max(0,Math.min(vw-2,sx)); sy=Math.max(0,Math.min(vh-2,sy));
     sw=Math.max(2,Math.min(vw-sx,sw)); sh=Math.max(2,Math.min(vh-sy,sh));
 
-    // Upscale the subtitle area for better recognition.
-    const factor=Math.min(2.4,Math.max(1.5,1100/Math.max(sw,1)));
+    // Upscale the subtitle crop. Camera subtitles are often small, so
+    // several lightweight preprocessing variants are tested and the
+    // highest-confidence result is selected.
+    const factor=Math.min(3.0,Math.max(1.8,1300/Math.max(sw,1)));
     canvas.width=Math.max(2,Math.round(sw*factor));
     canvas.height=Math.max(2,Math.round(sh*factor));
-    ctx.filter="contrast(1.35) brightness(1.08)";
     ctx.imageSmoothingEnabled=true;
     ctx.imageSmoothingQuality="high";
     ctx.drawImage(video,sx,sy,sw,sh,0,0,canvas.width,canvas.height);
-    ctx.filter="none";
-    const out=await worker.recognize(canvas);
-    let text=(out.data.text||"").replace(/\s+/g," ").trim();
-    text=clean(text);
-    if(text.length>=2) handleOCR(text);
+
+    const baseImage=ctx.getImageData(0,0,canvas.width,canvas.height);
+    const variants=[];
+
+    // Variant A: contrast + brightness.
+    variants.push(makeVariant(baseImage, "normal"));
+    // Variant B: grayscale with adaptive-ish threshold.
+    variants.push(makeVariant(baseImage, "threshold"));
+    // Variant C: grayscale with softer threshold, useful for outlined subtitles.
+    variants.push(makeVariant(baseImage, "soft"));
+
+    const results=[];
+    for(const variant of variants){
+      ctx.putImageData(variant,0,0);
+      try{
+        const o=await worker.recognize(canvas);
+        const t=clean((o.data.text||"").replace(/\s+/g," ").trim());
+        const conf=Number(o.data.confidence||0);
+        if(t.length>=2) results.push({text:t,conf});
+      }catch(_){}
+    }
+
+    // Prefer a longer, high-confidence single-line reading and reject
+    // obvious OCR noise.
+    results.sort((a,b)=>(b.conf + Math.min(b.text.length,40)*0.15) -
+                         (a.conf + Math.min(a.text.length,40)*0.15));
+    if(results.length) handleOCR(results[0].text);
+
+    function makeVariant(imageData, mode){
+      const copy=new ImageData(
+        new Uint8ClampedArray(imageData.data),
+        imageData.width,
+        imageData.height
+      );
+      const d=copy.data;
+      for(let i=0;i<d.length;i+=4){
+        const g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+        let v;
+        if(mode==="threshold"){
+          v=g>150?255:0;
+        }else if(mode==="soft"){
+          v=g>115?Math.min(255,g*1.75):Math.max(0,g*0.65);
+        }else{
+          v=Math.max(0,Math.min(255,(g-105)*1.8+135));
+        }
+        d[i]=d[i+1]=d[i+2]=v;
+      }
+      return copy;
+    }
   }catch(e){console.warn(e)}
   busy=false;
 }
@@ -200,25 +245,56 @@ document.querySelector("#interval").oninput=e=>{interval=+e.target.value};
 document.querySelector("#rate").oninput=e=>{rate=+e.target.value};
 
 let drag=null,resize=null;
+
+function layoutBounds(){
+  const appRect=document.querySelector("#app").getBoundingClientRect();
+  const cameraRect=video.getBoundingClientRect();
+  return {
+    app:appRect,
+    camera:cameraRect
+  };
+}
+
 box.addEventListener("pointerdown",e=>{
-  e.preventDefault();box.setPointerCapture(e.pointerId);
+  e.preventDefault();
+  box.setPointerCapture(e.pointerId);
   const r=box.getBoundingClientRect();
-  const edge=(r.right-e.clientX<35&&r.bottom-e.clientY<35);
-  if(edge)resize={x:e.clientX,y:e.clientY,w:r.width,h:r.height}; else drag={x:e.clientX,y:e.clientY,l:r.left,t:r.top};
+  const edge=(r.right-e.clientX<35 && r.bottom-e.clientY<35);
+  if(edge) resize={x:e.clientX,y:e.clientY,l:r.left,t:r.top,w:r.width,h:r.height};
+  else drag={x:e.clientX,y:e.clientY,l:r.left,t:r.top,w:r.width,h:r.height};
 });
+
 box.addEventListener("pointermove",e=>{
   if(!drag&&!resize)return;
-  const app=document.querySelector("#app").getBoundingClientRect();
+  e.preventDefault();
+
+  const {camera}=layoutBounds();
+
   if(drag){
-    const r=box.getBoundingClientRect();
-    box.style.left=Math.max(0,Math.min(app.width-r.width,drag.l+e.clientX-drag.x))+"px";
-    box.style.top=Math.max(0,Math.min(app.height-r.height,drag.t+e.clientY-drag.y))+"px";
-    box.style.width=r.width+"px";box.style.height=r.height+"px";
+    const newLeft=drag.l + e.clientX-drag.x;
+    const newTop=drag.t + e.clientY-drag.y;
+
+    const left=Math.max(camera.left,Math.min(camera.right-drag.w,newLeft));
+    const top=Math.max(camera.top,Math.min(camera.bottom-drag.h,newTop));
+
+    box.style.left=(left-camera.left)+"px";
+    box.style.top=(top-camera.top)+"px";
+    box.style.width=drag.w+"px";
+    box.style.height=drag.h+"px";
   }else{
-    const r=box.getBoundingClientRect();
-    box.style.width=Math.max(120,Math.min(app.width-r.left,resize.w+e.clientX-resize.x))+"px";
-    box.style.height=Math.max(70,Math.min(app.height-r.top,resize.h+e.clientY-resize.y))+"px";
+    const newW=resize.w + e.clientX-resize.x;
+    const newH=resize.h + e.clientY-resize.y;
+
+    const maxW=camera.right-resize.l;
+    const maxH=camera.bottom-resize.t;
+
+    box.style.width=Math.max(120,Math.min(maxW,newW))+"px";
+    box.style.height=Math.max(70,Math.min(maxH,newH))+"px";
   }
 });
-["pointerup","pointercancel"].forEach(x=>box.addEventListener(x,()=>{drag=resize=null}));
+
+["pointerup","pointercancel"].forEach(x=>box.addEventListener(x,()=>{
+  drag=resize=null;
+}));
+
 if("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));

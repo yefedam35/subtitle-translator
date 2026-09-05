@@ -41,3 +41,18 @@ The OCR engine is Tesseract.js running on the iPhone browser.
 - Sarı kutunun seçtiği gerçek kamera alanı doğru crop ediliyor.
 - Crop otomatik büyütülüyor ve kontrast artırılıyor.
 - Tek satır altyazı OCR ayarları iyileştirildi.
+
+
+## V11.5 OCR accuracy
+- Altyazı crop'u daha fazla büyütülüyor.
+- Normal, threshold ve soft-contrast olmak üzere 3 OCR görüntüsü deneniyor.
+- Tesseract sonuçları confidence ile karşılaştırılıp en iyi sonuç seçiliyor.
+- Küçük/kenarlı oyun altyazıları için daha dayanıklı hale getirildi.
+
+
+## V11.6 kutu sınırı
+- OCR kutusu yalnızca kamera panelinin içinde hareket eder.
+- Dikey modda çeviri paneline geçemez.
+- Yatay modda sağdaki çeviri paneline geçemez.
+- Kamera alanının dışına taşma engellendi.
+- Kamera görüntüsünü karartan büyük kutu gölgesi kaldırıldı.
