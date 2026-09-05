@@ -62,6 +62,13 @@ async function startCamera(){
       }
     });
 
+    try{
+      await worker.setParameters({
+        tessedit_pageseg_mode:"7",
+        preserve_interword_spaces:"1",
+        user_defined_dpi:"300"
+      });
+    }catch(_){}
     status("Hazır — sarı kutuyu altyazının üzerine getir.");
     schedule();
 
@@ -97,13 +104,25 @@ async function scan(){
   busy=true;
   try{
     const r=box.getBoundingClientRect(), v=video.getBoundingClientRect();
-    const scaleX=video.videoWidth/v.width, scaleY=video.videoHeight/v.height;
-    let sx=(r.left-v.left)*scaleX, sy=(r.top-v.top)*scaleY, sw=r.width*scaleX, sh=r.height*scaleY;
-    sx=Math.max(0,sx);sy=Math.max(0,sy);sw=Math.min(video.videoWidth-sx,sw);sh=Math.min(video.videoHeight-sy,sh);
-    const maxW=1100;
-    const outScale=Math.min(1,maxW/Math.max(1,sw));
-    canvas.width=Math.max(2,Math.round(sw*outScale));canvas.height=Math.max(2,Math.round(sh*outScale));
-    ctx.filter="contrast(1.12) brightness(1.05)";
+    const vw=video.videoWidth, vh=video.videoHeight;
+    const coverScale=Math.max(v.width/vw, v.height/vh);
+    const renderedW=vw*coverScale, renderedH=vh*coverScale;
+    const cropX=(renderedW-v.width)/2, cropY=(renderedH-v.height)/2;
+
+    // Map the on-screen yellow box to the actual camera pixels.
+    let sx=((r.left-v.left)+cropX)/coverScale;
+    let sy=((r.top-v.top)+cropY)/coverScale;
+    let sw=r.width/coverScale, sh=r.height/coverScale;
+    sx=Math.max(0,Math.min(vw-2,sx)); sy=Math.max(0,Math.min(vh-2,sy));
+    sw=Math.max(2,Math.min(vw-sx,sw)); sh=Math.max(2,Math.min(vh-sy,sh));
+
+    // Upscale the subtitle area for better recognition.
+    const factor=Math.min(2.4,Math.max(1.5,1100/Math.max(sw,1)));
+    canvas.width=Math.max(2,Math.round(sw*factor));
+    canvas.height=Math.max(2,Math.round(sh*factor));
+    ctx.filter="contrast(1.35) brightness(1.08)";
+    ctx.imageSmoothingEnabled=true;
+    ctx.imageSmoothingQuality="high";
     ctx.drawImage(video,sx,sy,sw,sh,0,0,canvas.width,canvas.height);
     ctx.filter="none";
     const out=await worker.recognize(canvas);

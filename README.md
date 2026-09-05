@@ -34,3 +34,10 @@ The OCR engine is Tesseract.js running on the iPhone browser.
 - Kamera görüntüsünün gerçekten hazır olduğu doğrulanır.
 - Kamera izin hataları kullanıcıya anlaşılır şekilde gösterilir.
 - Kamera hazır olmadan OCR başlatılmaz.
+
+
+## V11.4 OCR kutu düzeltmesi
+- object-fit: cover koordinat dönüşümü düzeltildi.
+- Sarı kutunun seçtiği gerçek kamera alanı doğru crop ediliyor.
+- Crop otomatik büyütülüyor ve kontrast artırılıyor.
+- Tek satır altyazı OCR ayarları iyileştirildi.
